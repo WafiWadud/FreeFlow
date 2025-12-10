@@ -3,11 +3,844 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Flow free clone</title>
-    <link href="style.css" rel="stylesheet" />
-    <script src="script.js" defer></script>
+    <title>Generator Repair - Flow Free</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #1a1a1a;
+        font-family: "Arial", sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #fff;
+      }
+
+      .game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .header h1 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        color: #00ff88;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+      }
+
+      .generator-bar-container {
+        width: 400px;
+        max-width: 90vw;
+        background: #0a0a0a;
+        border: 2px solid #00ff88;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+      }
+
+      .generator-label {
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: #00ff88;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .generator-bar {
+        width: 100%;
+        height: 30px;
+        background: #222;
+        border-radius: 5px;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid #333;
+      }
+
+      .generator-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff88, #00ccff);
+        transition: width 0.5s ease;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+      }
+
+      .generator-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: bold;
+        font-size: 12px;
+        color: #fff;
+        text-shadow: 1px 1px 2px #000;
+      }
+
+      .info-bar {
+        display: flex;
+        justify-content: space-between;
+        width: 400px;
+        max-width: 90vw;
+        font-size: 16px;
+        color: #aaa;
+      }
+
+      .grid {
+        width: 400px;
+        height: 400px;
+        max-width: 90vmin;
+        max-height: 90vmin;
+        background: #000;
+        overflow: hidden;
+        box-sizing: border-box;
+        border: 3px solid #00ff88;
+        border-radius: 5px;
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
+      }
+
+      .grid > div {
+        float: left;
+        position: relative;
+        width: calc(100% / 6);
+        height: calc(100% / 6);
+        box-sizing: border-box;
+        border: 1px solid #444;
+        background-image: radial-gradient(
+          ellipse at center,
+          transparent 0,
+          transparent 20.5%,
+          #000 21.484374%
+        );
+        cursor: pointer;
+        transition: background-color 0.1s;
+      }
+
+      .grid > div[data-completed="true"] {
+        background-image: radial-gradient(
+          ellipse at center,
+          transparent 0,
+          transparent 20.5%,
+          rgba(0, 0, 0, 0.8) 21.484374%
+        );
+      }
+
+      .grid > div[data-point="true"] {
+        background-image: radial-gradient(
+          ellipse at center,
+          transparent 0,
+          transparent 45%,
+          #000 50%
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 18px;
+        color: #000;
+        text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+      }
+
+      .grid > div[data-point="true"][data-completed="true"] {
+        background-image: radial-gradient(
+          ellipse at center,
+          transparent 0,
+          transparent 45%,
+          rgba(0, 0, 0, 0.8) 50%
+        );
+      }
+
+      .grid > div::before,
+      .grid > div::after {
+        content: "";
+        position: absolute;
+        display: block;
+        background-color: inherit;
+      }
+
+      .grid > div[data-t]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        top: -1px;
+      }
+
+      .grid > div[data-b]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        bottom: -1px;
+      }
+
+      .grid > div[data-l]::before {
+        width: 50%;
+        height: 30%;
+        left: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-r]::before {
+        width: 50%;
+        height: 30%;
+        right: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-t][data-b]::before {
+        width: 30%;
+        height: calc(100% + 2px);
+        left: 35%;
+        top: -1px;
+      }
+
+      .grid > div[data-l][data-r]::before {
+        width: calc(100% + 2px);
+        height: 30%;
+        left: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-t][data-l]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        top: -1px;
+      }
+
+      .grid > div[data-t][data-l]::after {
+        width: 50%;
+        height: 30%;
+        left: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-t][data-r]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        top: -1px;
+      }
+
+      .grid > div[data-t][data-r]::after {
+        width: 50%;
+        height: 30%;
+        right: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-b][data-l]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        bottom: -1px;
+      }
+
+      .grid > div[data-b][data-l]::after {
+        width: 50%;
+        height: 30%;
+        left: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-b][data-r]::before {
+        width: 30%;
+        height: 50%;
+        left: 35%;
+        bottom: -1px;
+      }
+
+      .grid > div[data-b][data-r]::after {
+        width: 50%;
+        height: 30%;
+        right: -1px;
+        top: 35%;
+      }
+
+      .grid > div[data-id="1"] {
+        background-color: #fc0d1b;
+      }
+      .grid > div[data-id="2"] {
+        background-color: #0f7f12;
+      }
+      .grid > div[data-id="3"] {
+        background-color: #0b24fb;
+      }
+      .grid > div[data-id="4"] {
+        background-color: #eeec33;
+      }
+      .grid > div[data-id="5"] {
+        background-color: #fd7f23;
+      }
+      .grid > div[data-id="6"] {
+        background-color: #2dfffe;
+      }
+      .grid > div[data-id="7"] {
+        background-color: #fc28fc;
+      }
+      .grid > div[data-id="8"] {
+        background-color: #a32b2e;
+      }
+      .grid > div[data-id="9"] {
+        background-color: #7f0f7e;
+      }
+      .grid > div[data-id="10"] {
+        background-color: #ffffff;
+      }
+      .grid > div[data-id="11"] {
+        background-color: #a6a6a6;
+      }
+      .grid > div[data-id="12"] {
+        background-color: #29fd2f;
+      }
+      .grid > div[data-id="13"] {
+        background-color: #bdb66f;
+      }
+
+      .completion-message {
+        font-size: 20px;
+        color: #00ff88;
+        font-weight: bold;
+        animation: pulse 1s infinite;
+        text-align: center;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      .victory-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .victory-content {
+        background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+        padding: 40px;
+        border-radius: 15px;
+        text-align: center;
+        border: 3px solid #00ff88;
+        box-shadow: 0 0 50px rgba(0, 255, 136, 0.6);
+      }
+
+      .victory-content h2 {
+        font-size: 36px;
+        color: #00ff88;
+        margin: 0 0 20px 0;
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
+      }
+
+      .victory-content p {
+        font-size: 18px;
+        color: #aaa;
+        margin-bottom: 30px;
+      }
+
+      button {
+        background: #00ff88;
+        color: #000;
+        border: none;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      button:hover {
+        background: #00ccff;
+        transform: scale(1.05);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+      }
+    </style>
   </head>
   <body>
-    <div class="grid"></div>
+    <div class="game-container">
+      <div class="header">
+        <h1>⚡ Generator Repair ⚡</h1>
+      </div>
+
+      <div class="generator-bar-container">
+        <div class="generator-label">Generator Power</div>
+        <div class="generator-bar">
+          <div class="generator-fill" id="generatorFill"></div>
+          <div class="generator-text" id="generatorText">0%</div>
+        </div>
+      </div>
+
+      <div class="info-bar">
+        <div>Layer: <span id="layerNum">1</span> / 4</div>
+        <div>
+          Pairs: <span id="pairCount">0</span> / <span id="totalPairs">0</span>
+        </div>
+      </div>
+
+      <div class="grid"></div>
+
+      <div
+        id="completionMsg"
+        class="completion-message"
+        style="display: none"
+      ></div>
+    </div>
+
+    <div class="victory-screen" id="victoryScreen">
+      <div class="victory-content">
+        <h2>🎉 GENERATOR REPAIRED! 🎉</h2>
+        <p>All four layers completed successfully!</p>
+        <button onclick="location.reload()">Play Again</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        let currentColor = null;
+        let previousPoint = null;
+        let currentCell = null;
+        let paths = {};
+        let isDrawing = false;
+        let gridSize = 6;
+        let currentLayer = 1;
+        let totalLayers = 4;
+        let pairsNeeded = 0;
+        let pairsCompleted = 0;
+
+        function init() {
+          generateRandomLevel();
+          updateUI();
+        }
+
+        function generateRandomLevel() {
+          let maxAttempts = 100;
+          let success = false;
+
+          for (let attempt = 0; attempt < maxAttempts && !success; attempt++) {
+            success = tryGenerateLevel();
+          }
+
+          if (!success) {
+            // Fallback: generate a simpler puzzle
+            tryGenerateLevel(3);
+          }
+
+          updateUI();
+        }
+
+        function tryGenerateLevel(forcePairs = null) {
+          let numPairs = forcePairs || Math.floor(Math.random() * 10) + 4; // 4-13 pairs
+          pairsNeeded = numPairs;
+          pairsCompleted = 0;
+
+          let grid = document.querySelector(".grid");
+          grid.innerHTML = "";
+          paths = {};
+
+          // Create solution paths first
+          let cells = new Array(36).fill(0);
+          let occupied = new Array(36).fill(false);
+          let pathCells = [];
+
+          // Generate each path using pathfinding
+          for (let colorId = 1; colorId <= numPairs; colorId++) {
+            let pathFound = false;
+            let attempts = 0;
+
+            while (!pathFound && attempts < 50) {
+              attempts++;
+
+              // Pick random start position
+              let startPos = Math.floor(Math.random() * 36);
+              if (occupied[startPos]) continue;
+
+              // Pick random end position (must be at least 2 cells away)
+              let endPos;
+              let validEnd = false;
+              for (let i = 0; i < 50; i++) {
+                endPos = Math.floor(Math.random() * 36);
+                if (!occupied[endPos] && endPos !== startPos) {
+                  let dist =
+                    Math.abs((startPos % 6) - (endPos % 6)) +
+                    Math.abs(Math.floor(startPos / 6) - Math.floor(endPos / 6));
+                  if (dist >= 2) {
+                    validEnd = true;
+                    break;
+                  }
+                }
+              }
+
+              if (!validEnd) continue;
+
+              // Find a path using A* algorithm
+              let path = findPath(startPos, endPos, occupied);
+
+              if (path && path.length >= 2) {
+                // Mark all cells in path as occupied
+                path.forEach((pos) => (occupied[pos] = true));
+
+                // Mark only endpoints in cells array
+                cells[startPos] = colorId;
+                cells[endPos] = colorId;
+
+                pathCells.push({ color: colorId, path: path });
+                pathFound = true;
+              }
+            }
+
+            if (!pathFound) {
+              return false; // Failed to generate this puzzle
+            }
+          }
+
+          // Build grid with only endpoints visible
+          cells.forEach((val) => {
+            let div = document.createElement("div");
+            if (val) {
+              div.setAttribute("data-id", val);
+              div.setAttribute("data-point", "true");
+              div.textContent = val;
+            }
+            grid.appendChild(div);
+          });
+
+          // Attach event listeners
+          Array.from(grid.querySelectorAll("div")).forEach((cell, index) => {
+            cell.setAttribute("data-i", index);
+
+            if ("ontouchstart" in document) {
+              cell.addEventListener("touchstart", startDraw, false);
+              cell.addEventListener("touchmove", moveDraw, false);
+              cell.addEventListener("touchend", endDraw, false);
+            } else {
+              cell.addEventListener("mousedown", startDraw, false);
+              cell.addEventListener("mousemove", moveDraw, false);
+              cell.addEventListener("mouseup", endDraw, false);
+            }
+          });
+
+          return true;
+        }
+
+        function findPath(start, end, occupied) {
+          // A* pathfinding
+          let openSet = [
+            { pos: start, g: 0, h: heuristic(start, end), parent: null },
+          ];
+          let closedSet = new Set();
+          let cameFrom = new Map();
+
+          while (openSet.length > 0) {
+            // Get node with lowest f score
+            openSet.sort((a, b) => a.g + a.h - (b.g + b.h));
+            let current = openSet.shift();
+
+            if (current.pos === end) {
+              // Reconstruct path
+              let path = [];
+              let node = current.pos;
+              while (cameFrom.has(node)) {
+                path.unshift(node);
+                node = cameFrom.get(node);
+              }
+              path.unshift(start);
+              return path;
+            }
+
+            closedSet.add(current.pos);
+
+            // Check neighbors
+            let neighbors = getNeighbors(current.pos);
+            for (let neighbor of neighbors) {
+              if (closedSet.has(neighbor)) continue;
+              if (occupied[neighbor] && neighbor !== end) continue;
+
+              let tentativeG = current.g + 1;
+              let existing = openSet.find((n) => n.pos === neighbor);
+
+              if (!existing) {
+                openSet.push({
+                  pos: neighbor,
+                  g: tentativeG,
+                  h: heuristic(neighbor, end),
+                  parent: current.pos,
+                });
+                cameFrom.set(neighbor, current.pos);
+              } else if (tentativeG < existing.g) {
+                existing.g = tentativeG;
+                cameFrom.set(neighbor, current.pos);
+              }
+            }
+          }
+
+          return null; // No path found
+        }
+
+        function heuristic(pos1, pos2) {
+          // Manhattan distance
+          let x1 = pos1 % 6,
+            y1 = Math.floor(pos1 / 6);
+          let x2 = pos2 % 6,
+            y2 = Math.floor(pos2 / 6);
+          return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+        }
+
+        function getNeighbors(pos) {
+          let neighbors = [];
+          let x = pos % 6,
+            y = Math.floor(pos / 6);
+
+          if (x > 0) neighbors.push(pos - 1); // left
+          if (x < 5) neighbors.push(pos + 1); // right
+          if (y > 0) neighbors.push(pos - 6); // up
+          if (y < 5) neighbors.push(pos + 6); // down
+
+          return neighbors;
+        }
+
+        function updateUI() {
+          document.getElementById("layerNum").textContent = currentLayer;
+          document.getElementById("totalPairs").textContent = pairsNeeded;
+          document.getElementById("pairCount").textContent = pairsCompleted;
+
+          let progress =
+            ((currentLayer - 1) / totalLayers) * 100 +
+            (pairsCompleted / pairsNeeded) * (100 / totalLayers);
+          document.getElementById("generatorFill").style.width = progress + "%";
+          document.getElementById("generatorText").textContent =
+            Math.round(progress) + "%";
+        }
+
+        function checkCompletion() {
+          let allPairsComplete = true;
+          for (let i = 1; i <= pairsNeeded; i++) {
+            if (!paths[i] || !isPathComplete(i)) {
+              allPairsComplete = false;
+              break;
+            }
+          }
+
+          if (allPairsComplete) {
+            let msg = document.getElementById("completionMsg");
+            msg.style.display = "block";
+
+            if (currentLayer < totalLayers) {
+              msg.textContent = `Layer ${currentLayer} Complete! Loading next layer...`;
+              setTimeout(() => {
+                currentLayer++;
+                msg.style.display = "none";
+                generateRandomLevel();
+              }, 2000);
+            } else {
+              msg.textContent = "All Layers Complete!";
+              setTimeout(() => {
+                document.getElementById("victoryScreen").style.display = "flex";
+              }, 1500);
+            }
+          }
+        }
+
+        function isPathComplete(colorId) {
+          if (!paths[colorId]) return false;
+
+          let grid = document.querySelector(".grid");
+          let endpoints = grid.querySelectorAll(
+            `div[data-point="true"][data-id="${colorId}"]`,
+          );
+
+          if (endpoints.length !== 2) return false;
+
+          let completed = 0;
+          endpoints.forEach((ep) => {
+            if (ep.getAttribute("data-completed") === "true") {
+              completed++;
+            }
+          });
+
+          return completed === 2;
+        }
+
+        function getDirection(i1, i2) {
+          let dx = (i1 % gridSize) - (i2 % gridSize);
+          let dy = Math.floor(i1 / gridSize) - Math.floor(i2 / gridSize);
+
+          if (dx === -1 && dy === 0) return "l";
+          if (dx === 1 && dy === 0) return "r";
+          if (dx === 0 && dy === -1) return "t";
+          if (dx === 0 && dy === 1) return "b";
+          return false;
+        }
+
+        function trimPath(path, keep) {
+          if (!path.length) return [];
+
+          let id = path[0].getAttribute("data-id");
+          let grid = document.querySelector(".grid");
+
+          grid.querySelectorAll(`div[data-id="${id}"]`).forEach((cell) => {
+            cell.removeAttribute("data-completed");
+          });
+
+          keep = keep || 1;
+
+          while (path.length > keep) {
+            let tail = path.pop();
+            let before = path[path.length - 1];
+            let dir = getDirection(
+              parseInt(before.getAttribute("data-i")),
+              parseInt(tail.getAttribute("data-i")),
+            );
+
+            if (tail.getAttribute("data-point") !== "true") {
+              tail.removeAttribute("data-id");
+              tail.textContent = "";
+            }
+
+            tail.removeAttribute(`data-${dir}`);
+            before.removeAttribute(
+              `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
+            );
+          }
+
+          if (path.length === 1) path.pop();
+
+          return path;
+        }
+
+        function startDraw(e) {
+          let id = parseInt(this.getAttribute("data-id"));
+          if (!id) return;
+
+          if (e.type.startsWith("mouse") && e.which !== 1) return;
+
+          previousPoint = currentColor;
+          currentColor = id;
+
+          if (currentCell !== e.target) {
+            previousPoint = currentCell;
+            currentCell = e.target;
+
+            if (currentCell.getAttribute("data-point") === "true") {
+              paths[id] = paths[id] ? trimPath(paths[id]) : [];
+            } else {
+              let idx = paths[id].indexOf(e.target);
+              if (idx > -1) {
+                paths[id] = trimPath(paths[id], idx + 1);
+                previousPoint = paths[id][paths[id].length - 1];
+              }
+            }
+            paths[id].push(currentCell);
+          }
+
+          isDrawing = true;
+          e.preventDefault();
+        }
+
+        function moveDraw(e) {
+          if (!isDrawing) return;
+
+          let target = e.target;
+
+          if (e.type.startsWith("touch")) {
+            let touch = e.touches[0];
+            target = document.elementFromPoint(touch.clientX, touch.clientY);
+          }
+
+          if (!currentCell || target === currentCell) {
+            e.preventDefault();
+            return;
+          }
+
+          let dir = getDirection(
+            parseInt(currentCell.getAttribute("data-i")),
+            parseInt(target.getAttribute("data-i")),
+          );
+          if (!dir) return;
+
+          let id = parseInt(target.getAttribute("data-id"));
+          let isPoint = target.getAttribute("data-point") === "true";
+
+          if (id == currentColor) {
+            let idx = paths[currentColor].indexOf(target);
+
+            if (idx > -1) {
+              paths[currentColor] = trimPath(paths[currentColor], idx + 1);
+              currentCell = paths[currentColor][paths[currentColor].length - 1];
+              previousPoint =
+                paths[currentColor][paths[currentColor].length - 2];
+            } else if (isPoint) {
+              previousPoint = currentCell;
+              currentCell = target;
+
+              paths[currentColor].push(target);
+              paths[currentColor].forEach((c) =>
+                c.setAttribute("data-completed", "true"),
+              );
+
+              target.setAttribute("data-id", currentColor);
+              target.setAttribute(`data-${dir}`, "");
+              previousPoint.setAttribute(
+                `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
+                "",
+              );
+
+              pairsCompleted++;
+              updateUI();
+              checkCompletion();
+            }
+          } else if (!id) {
+            if (
+              currentCell.getAttribute("data-point") &&
+              paths[currentColor].length > 1
+            )
+              return;
+
+            previousPoint = currentCell;
+            currentCell = target;
+
+            target.setAttribute("data-id", currentColor);
+            target.setAttribute(`data-${dir}`, "");
+            previousPoint.setAttribute(
+              `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
+              "",
+            );
+
+            paths[currentColor].push(target);
+          }
+
+          e.preventDefault();
+        }
+
+        function endDraw(e) {
+          if (isDrawing) {
+            isDrawing = false;
+            e.preventDefault();
+          }
+        }
+
+        init();
+      })();
+    </script>
   </body>
 </html>
