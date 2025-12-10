@@ -424,7 +424,7 @@
         let isDrawing = false;
         let gridSize = 6;
         let currentLayer = 1;
-        let totalLayers = 4;
+        let totalLayers = 5;
         let pairsNeeded = 0;
         let pairsCompleted = 0;
 
@@ -445,12 +445,19 @@
             // Fallback: generate a simpler puzzle
             tryGenerateLevel(3);
           }
+        }
 
-          updateUI();
+        function rand(a, b) {
+          return (
+            (a +
+              ((b - a + 1) * crypto.getRandomValues(new Uint32Array(1))[0]) /
+                2 ** 32) |
+            0
+          );
         }
 
         function tryGenerateLevel(forcePairs = null) {
-          let numPairs = forcePairs || Math.floor(Math.random() * 10) + 4; // 4-13 pairs
+          let numPairs = forcePairs || rand(5, 14); // 4-13 pairs
           pairsNeeded = numPairs;
           pairsCompleted = 0;
 
@@ -646,17 +653,13 @@
             msg.style.display = "block";
 
             if (currentLayer < totalLayers) {
-              msg.textContent = `Layer ${currentLayer} Complete! Loading next layer...`;
               setTimeout(() => {
                 currentLayer++;
-                msg.style.display = "none";
                 generateRandomLevel();
-              }, 2000);
+              }, 300);
             } else {
               msg.textContent = "All Layers Complete!";
-              setTimeout(() => {
-                document.getElementById("victoryScreen").style.display = "flex";
-              }, 1500);
+              document.getElementById("victoryScreen").style.display = "flex";
             }
           }
         }
@@ -698,6 +701,9 @@
           let id = path[0].getAttribute("data-id");
           let grid = document.querySelector(".grid");
 
+          // Check if path was previously completed
+          let wasCompleted = isPathComplete(id);
+
           grid.querySelectorAll(`div[data-id="${id}"]`).forEach((cell) => {
             cell.removeAttribute("data-completed");
           });
@@ -724,6 +730,12 @@
           }
 
           if (path.length === 1) path.pop();
+
+          // If path was completed and now isn't, decrement counter
+          if (wasCompleted && pairsCompleted > 0) {
+            pairsCompleted--;
+            updateUI();
+          }
 
           return path;
         }
