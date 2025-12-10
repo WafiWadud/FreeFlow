@@ -94,10 +94,8 @@
       }
 
       .grid {
-        width: 400px;
-        height: 400px;
-        max-width: 90vmin;
-        max-height: 90vmin;
+        width: 40rem;
+        height: 40rem;
         background: #000;
         overflow: hidden;
         box-sizing: border-box;
@@ -392,7 +390,7 @@
       </div>
 
       <div class="info-bar">
-        <div>Layer: <span id="layerNum">1</span> / 4</div>
+        <div>Layer: <span id="layerNum">1</span> / 5</div>
         <div>
           Pairs: <span id="pairCount">0</span> / <span id="totalPairs">0</span>
         </div>
@@ -410,7 +408,7 @@
     <div class="victory-screen" id="victoryScreen">
       <div class="victory-content">
         <h2>🎉 GENERATOR REPAIRED! 🎉</h2>
-        <p>All four layers completed successfully!</p>
+        <p>All five layers completed successfully!</p>
         <button onclick="location.reload()">Play Again</button>
       </div>
     </div>
@@ -434,16 +432,25 @@
         }
 
         function generateRandomLevel() {
-          let maxAttempts = 100;
           let success = false;
 
-          for (let attempt = 0; attempt < maxAttempts && !success; attempt++) {
+          // Try with random pairs first
+          for (let attempt = 0; attempt < 20 && !success; attempt++) {
             success = tryGenerateLevel();
           }
 
+          // Fallback with fewer pairs
           if (!success) {
-            // Fallback: generate a simpler puzzle
-            tryGenerateLevel(3);
+            for (let pairs = 8; pairs >= 5 && !success; pairs--) {
+              for (let attempt = 0; attempt < 10 && !success; attempt++) {
+                success = tryGenerateLevel(pairs);
+              }
+            }
+          }
+
+          // Final fallback - very simple
+          if (!success) {
+            success = tryGenerateLevel(4);
           }
         }
 
@@ -457,7 +464,7 @@
         }
 
         function tryGenerateLevel(forcePairs = null) {
-          let numPairs = forcePairs || rand(5, 14); // 4-13 pairs
+          let numPairs = forcePairs || rand(6, 10); // 6-10 pairs
           pairsNeeded = numPairs;
           pairsCompleted = 0;
 
@@ -470,55 +477,85 @@
           let occupied = new Array(36).fill(false);
           let pathCells = [];
 
-          // Generate each path using pathfinding
+          // Generate each path using pathfinding with constraints
           for (let colorId = 1; colorId <= numPairs; colorId++) {
-            let pathFound = false;
-            let attempts = 0;
+            let bestPath = null;
+            let bestStart = -1;
+            let bestEnd = -1;
+            let bestScore = -Infinity;
 
-            while (!pathFound && attempts < 50) {
-              attempts++;
-
-              // Pick random start position
-              let startPos = Math.floor(Math.random() * 36);
-              if (occupied[startPos]) continue;
-
-              // Pick random end position (must be at least 2 cells away)
-              let endPos;
-              let validEnd = false;
-              for (let i = 0; i < 50; i++) {
-                endPos = Math.floor(Math.random() * 36);
-                if (!occupied[endPos] && endPos !== startPos) {
-                  let dist =
-                    Math.abs((startPos % 6) - (endPos % 6)) +
-                    Math.abs(Math.floor(startPos / 6) - Math.floor(endPos / 6));
-                  if (dist >= 2) {
-                    validEnd = true;
-                    break;
-                  }
-                }
+            for (let attempt = 0; attempt < 50; attempt++) {
+              // Pick random unoccupied positions
+              let availablePositions = [];
+              for (let i = 0; i < 36; i++) {
+                if (!occupied[i]) availablePositions.push(i);
               }
 
-              if (!validEnd) continue;
+              if (availablePositions.length < 2) break;
 
-              // Find a path using A* algorithm
-              let path = findPath(startPos, endPos, occupied);
+              // Pick start
+              let startIdx = Math.floor(
+                Math.random() * availablePositions.length,
+              );
+              let startPos = availablePositions[startIdx];
+
+              // Pick end (different from start)
+              availablePositions.splice(startIdx, 1);
+              let endIdx = Math.floor(
+                Math.random() * availablePositions.length,
+              );
+              let endPos = availablePositions[endIdx];
+
+              // Check distance
+              let dist =
+                Math.abs((startPos % 6) - (endPos % 6)) +
+                Math.abs(Math.floor(startPos / 6) - Math.floor(endPos / 6));
+
+              if (dist < 2) continue;
+
+              // Find a path
+              let path = findConstrainedPath(
+                startPos,
+                endPos,
+                occupied,
+                colorId,
+                numPairs,
+              );
 
               if (path && path.length >= 2) {
-                // Mark all cells in path as occupied
-                path.forEach((pos) => (occupied[pos] = true));
+                // Score based on length and turns
+                let score = path.length;
+                let turns = 0;
+                for (let i = 2; i < path.length; i++) {
+                  let dir1 = getDirectionSimple(path[i - 2], path[i - 1]);
+                  let dir2 = getDirectionSimple(path[i - 1], path[i]);
+                  if (dir1 !== dir2) turns++;
+                }
+                score += turns * 2;
 
-                // Mark only endpoints in cells array
-                cells[startPos] = colorId;
-                cells[endPos] = colorId;
-
-                pathCells.push({ color: colorId, path: path });
-                pathFound = true;
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestPath = path;
+                  bestStart = startPos;
+                  bestEnd = endPos;
+                }
               }
             }
 
-            if (!pathFound) {
+            if (!bestPath) {
               return false; // Failed to generate this puzzle
             }
+
+            // Mark all cells in path as occupied
+            bestPath.forEach((pos) => {
+              occupied[pos] = true;
+            });
+
+            // Mark only endpoints in cells array
+            cells[bestStart] = colorId;
+            cells[bestEnd] = colorId;
+
+            pathCells.push({ color: colorId, path: bestPath });
           }
 
           // Build grid with only endpoints visible
@@ -550,8 +587,25 @@
           return true;
         }
 
-        function findPath(start, end, occupied) {
-          // A* pathfinding
+        function getDirectionSimple(pos1, pos2) {
+          let dx = (pos2 % 6) - (pos1 % 6);
+          let dy = Math.floor(pos2 / 6) - Math.floor(pos1 / 6);
+
+          if (dx === -1 && dy === 0) return "l";
+          if (dx === 1 && dy === 0) return "r";
+          if (dx === 0 && dy === -1) return "t";
+          if (dx === 0 && dy === 1) return "b";
+          return null;
+        }
+
+        function findConstrainedPath(
+          start,
+          end,
+          occupied,
+          colorId,
+          totalPairs,
+        ) {
+          // A* pathfinding with constraints to make harder puzzles
           let openSet = [
             { pos: start, g: 0, h: heuristic(start, end), parent: null },
           ];
@@ -579,6 +633,7 @@
 
             // Check neighbors
             let neighbors = getNeighbors(current.pos);
+
             for (let neighbor of neighbors) {
               if (closedSet.has(neighbor)) continue;
               if (occupied[neighbor] && neighbor !== end) continue;
@@ -653,10 +708,13 @@
             msg.style.display = "block";
 
             if (currentLayer < totalLayers) {
+              msg.textContent = `Layer ${currentLayer} Complete!`;
               setTimeout(() => {
+                msg.style.display = "none";
                 currentLayer++;
                 generateRandomLevel();
-              }, 300);
+                updateUI();
+              }, 1000);
             } else {
               msg.textContent = "All Layers Complete!";
               document.getElementById("victoryScreen").style.display = "flex";
@@ -685,18 +743,25 @@
         }
 
         function getDirection(i1, i2) {
-          let dx = (i1 % gridSize) - (i2 % gridSize);
-          let dy = Math.floor(i1 / gridSize) - Math.floor(i2 / gridSize);
+          if (typeof i1 === "object") {
+            i1 = parseInt(i1.getAttribute("data-i"));
+          }
+          if (typeof i2 === "object") {
+            i2 = parseInt(i2.getAttribute("data-i"));
+          }
 
-          if (dx === -1 && dy === 0) return "l";
+          let dx = (i2 % 6) - (i1 % 6);
+          let dy = Math.floor(i2 / 6) - Math.floor(i1 / 6);
+
           if (dx === 1 && dy === 0) return "r";
-          if (dx === 0 && dy === -1) return "t";
+          if (dx === -1 && dy === 0) return "l";
           if (dx === 0 && dy === 1) return "b";
+          if (dx === 0 && dy === -1) return "t";
           return false;
         }
 
         function trimPath(path, keep) {
-          if (!path.length) return [];
+          if (!path || !path.length) return [];
 
           let id = path[0].getAttribute("data-id");
           let grid = document.querySelector(".grid");
@@ -713,20 +778,40 @@
           while (path.length > keep) {
             let tail = path.pop();
             let before = path[path.length - 1];
-            let dir = getDirection(
-              parseInt(before.getAttribute("data-i")),
-              parseInt(tail.getAttribute("data-i")),
-            );
+
+            if (!tail || !before) break;
+
+            let tailIdx = parseInt(tail.getAttribute("data-i"));
+            let beforeIdx = parseInt(before.getAttribute("data-i"));
+
+            // Calculate which direction the tail is from before
+            let dx = (tailIdx % 6) - (beforeIdx % 6);
+            let dy = Math.floor(tailIdx / 6) - Math.floor(beforeIdx / 6);
+
+            let tailDir = null;
+            let beforeDir = null;
+
+            if (dx === 1) {
+              tailDir = "r";
+              beforeDir = "l";
+            } else if (dx === -1) {
+              tailDir = "l";
+              beforeDir = "r";
+            } else if (dy === 1) {
+              tailDir = "b";
+              beforeDir = "t";
+            } else if (dy === -1) {
+              tailDir = "t";
+              beforeDir = "b";
+            }
 
             if (tail.getAttribute("data-point") !== "true") {
               tail.removeAttribute("data-id");
               tail.textContent = "";
             }
 
-            tail.removeAttribute(`data-${dir}`);
-            before.removeAttribute(
-              `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
-            );
+            if (tailDir) tail.removeAttribute(`data-${beforeDir}`);
+            if (beforeDir) before.removeAttribute(`data-${tailDir}`);
           }
 
           if (path.length === 1) path.pop();
@@ -756,10 +841,14 @@
             if (currentCell.getAttribute("data-point") === "true") {
               paths[id] = paths[id] ? trimPath(paths[id]) : [];
             } else {
-              let idx = paths[id].indexOf(e.target);
-              if (idx > -1) {
-                paths[id] = trimPath(paths[id], idx + 1);
-                previousPoint = paths[id][paths[id].length - 1];
+              if (paths[id]) {
+                let idx = paths[id].indexOf(e.target);
+                if (idx > -1) {
+                  paths[id] = trimPath(paths[id], idx + 1);
+                  previousPoint = paths[id][paths[id].length - 1];
+                }
+              } else {
+                paths[id] = [];
               }
             }
             paths[id].push(currentCell);
@@ -779,28 +868,70 @@
             target = document.elementFromPoint(touch.clientX, touch.clientY);
           }
 
-          if (!currentCell || target === currentCell) {
+          if (!target || !currentCell || target === currentCell) {
             e.preventDefault();
             return;
           }
 
-          let dir = getDirection(
-            parseInt(currentCell.getAttribute("data-i")),
-            parseInt(target.getAttribute("data-i")),
-          );
-          if (!dir) return;
+          let currentIdx = parseInt(currentCell.getAttribute("data-i"));
+          let targetIdx = parseInt(target.getAttribute("data-i"));
+
+          if (isNaN(currentIdx) || isNaN(targetIdx)) {
+            e.preventDefault();
+            return;
+          }
+
+          // Calculate direction from current to target
+          let dx = (targetIdx % 6) - (currentIdx % 6);
+          let dy = Math.floor(targetIdx / 6) - Math.floor(currentIdx / 6);
+
+          // Only allow adjacent cells
+          if (Math.abs(dx) + Math.abs(dy) !== 1) {
+            e.preventDefault();
+            return;
+          }
+
+          let dirFromCurrent = null;
+          let dirFromTarget = null;
+
+          if (dx === 1) {
+            dirFromCurrent = "r";
+            dirFromTarget = "l";
+          } else if (dx === -1) {
+            dirFromCurrent = "l";
+            dirFromTarget = "r";
+          } else if (dy === 1) {
+            dirFromCurrent = "b";
+            dirFromTarget = "t";
+          } else if (dy === -1) {
+            dirFromCurrent = "t";
+            dirFromTarget = "b";
+          }
+
+          if (!dirFromCurrent) {
+            e.preventDefault();
+            return;
+          }
 
           let id = parseInt(target.getAttribute("data-id"));
           let isPoint = target.getAttribute("data-point") === "true";
 
           if (id == currentColor) {
+            // Ensure path exists
+            if (!paths[currentColor]) {
+              paths[currentColor] = [];
+            }
+
             let idx = paths[currentColor].indexOf(target);
 
             if (idx > -1) {
               paths[currentColor] = trimPath(paths[currentColor], idx + 1);
-              currentCell = paths[currentColor][paths[currentColor].length - 1];
-              previousPoint =
-                paths[currentColor][paths[currentColor].length - 2];
+              if (paths[currentColor].length > 0) {
+                currentCell =
+                  paths[currentColor][paths[currentColor].length - 1];
+                previousPoint =
+                  paths[currentColor][paths[currentColor].length - 2];
+              }
             } else if (isPoint) {
               previousPoint = currentCell;
               currentCell = target;
@@ -811,11 +942,8 @@
               );
 
               target.setAttribute("data-id", currentColor);
-              target.setAttribute(`data-${dir}`, "");
-              previousPoint.setAttribute(
-                `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
-                "",
-              );
+              target.setAttribute(`data-${dirFromTarget}`, "");
+              previousPoint.setAttribute(`data-${dirFromCurrent}`, "");
 
               pairsCompleted++;
               updateUI();
@@ -824,6 +952,7 @@
           } else if (!id) {
             if (
               currentCell.getAttribute("data-point") &&
+              paths[currentColor] &&
               paths[currentColor].length > 1
             )
               return;
@@ -832,12 +961,12 @@
             currentCell = target;
 
             target.setAttribute("data-id", currentColor);
-            target.setAttribute(`data-${dir}`, "");
-            previousPoint.setAttribute(
-              `data-${{ t: "b", b: "t", l: "r", r: "l" }[dir]}`,
-              "",
-            );
+            target.setAttribute(`data-${dirFromTarget}`, "");
+            previousPoint.setAttribute(`data-${dirFromCurrent}`, "");
 
+            if (!paths[currentColor]) {
+              paths[currentColor] = [];
+            }
             paths[currentColor].push(target);
           }
 
